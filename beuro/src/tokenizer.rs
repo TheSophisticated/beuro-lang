@@ -1,4 +1,7 @@
-use crate::token::{Token, TokenType};
+use crate::token::{
+    Token,
+    TokenType::{IntLit, Return, Semi},
+};
 
 pub struct Tokenizer {
     pub src_code: Vec<char>,
@@ -6,76 +9,72 @@ pub struct Tokenizer {
 }
 
 impl Tokenizer {
-    pub fn new(src_code: Vec<char>) -> Self {
+    pub fn new(src: Vec<char>) -> Self {
         Self {
-            src_code: src_code,
+            src_code: src,
             idx: 0,
         }
     }
 
     pub fn tokenize(&mut self) -> Vec<Token> {
         let mut tokens: Vec<Token> = Vec::new();
-
-        let chars: &Vec<char> = &self.src_code;
         let mut buf = String::new();
-        let mut i: usize = 0;
 
-        while i < chars.len() {
-            let c: char = chars[i];
-            //Check if it is keyword
-            if c.is_alphabetic() || c == '_' {
-                buf.push(c);
-                i += 1;
-                while i < chars.len() && chars[i].is_alphanumeric() {
-                    buf.push(chars[i]);
-                    i += 1;
+        while self.look_ahead(1).is_some() {
+            //Check for Keyword
+            if self.look_ahead(1).unwrap().is_alphabetic() || self.look_ahead(1).unwrap() == '_' {
+                buf.push(self.consume_char());
+
+                while self.look_ahead(1).is_some() && self.look_ahead(1).unwrap().is_alphanumeric()
+                {
+                    buf.push(self.consume_char());
                 }
-                i -= 1;
 
                 if buf == "conclude" {
                     tokens.push(Token {
-                        token_type: TokenType::Return,
+                        token_type: Return,
                         token_value: None,
                     });
+
                     buf.clear();
+                    continue;
                 } else {
-                    println!("Some Error Occurred when checking Keyword!");
-                    std::process::exit(1);
+                    println!("There was an error detecting the keyword!");
                 }
             }
-            //Check if it is Integer Literal
-            else if c.is_digit(10) {
-                buf.push(c);
-                i += 1;
+            //Checking for Integer Literal
+            else if self.look_ahead(1).unwrap().is_ascii_digit() {
+                buf.push(self.consume_char());
 
-                while i < chars.len() && chars[i].is_digit(10) {
-                    buf.push(chars[i]);
-                    i += 1;
+                while self.look_ahead(1).is_some() && self.look_ahead(1).unwrap().is_ascii_digit() {
+                    buf.push(self.consume_char());
                 }
 
-                i -= 1;
-
                 tokens.push(Token {
-                    token_type: TokenType::IntLit,
+                    token_type: IntLit,
                     token_value: Some(std::mem::take(&mut buf)),
                 });
+                continue;
             }
             //Check for Semi-Colon
-            else if c == ';' {
+            else if self.look_ahead(1).unwrap() == ';' {
+                buf.push(self.consume_char());
                 tokens.push(Token {
-                    token_type: TokenType::Semi,
+                    token_type: Semi,
                     token_value: None,
                 });
+                continue;
             }
-            //Skip Spaces
-            else if c.is_whitespace() {
+            //Check for Space
+            else if self.look_ahead(1).unwrap().is_whitespace() {
+                self.consume_char();
+                continue;
             } else {
-                println!("An Error Occurred during tokenization!");
+                println!("Tokenization Error Occurred!");
             }
-
-            i += 1;
         }
 
+        self.idx = 0;
         tokens
     }
 
@@ -84,5 +83,14 @@ impl Tokenizer {
         self.idx += 1;
 
         result
+    }
+
+    fn look_ahead(&mut self, ahead: usize) -> Option<char> {
+        //Keep an eye on this, not sure about the >=
+        if self.idx + ahead >= self.src_code.len() {
+            None
+        } else {
+            Some(self.src_code[self.idx])
+        }
     }
 }
